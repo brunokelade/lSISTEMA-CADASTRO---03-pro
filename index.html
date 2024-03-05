@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Ordem de Serviço</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    main {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    form, .order {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="email"],
+    textarea,
+    input[type="datetime-local"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #555;
+    }
+
+    .closeOrder {
+      padding: 5px 10px;
+      background-color: #d9534f;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .closeOrder:hover {
+      background-color: #c9302c;
+    }
+
+    #customerFormContainer {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      form, .order {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sistema de Ordem de Serviço</h1>
+    <button id="toggleSystem">Fechar Sistema</button>
+    <button id="showHistory">Ver Histórico</button>
+  </header>
+  <main>
+    <div id="customerFormContainer">
+      <h2>Cadastro de Clientes</h2>
+      <form id="customerForm">
+        <div class="form-group">
+          <label for="customerName">Nome do Cliente:</label>
+          <input type="text" id="customerName" required>
+        </div>
+        <div class="form-group">
+          <label for="customerPhone">Telefone:</label>
+          <input type="tel" id="customerPhone">
+        </div>
+        <div class="form-group">
+          <label for="customerEmail">E-mail:</label>
+          <input type="email" id="customerEmail">
+        </div>
+        <button type="submit">Cadastrar Cliente</button>
+      </form>
+    </div>
+    
+    <form id="orderForm">
+      <div class="form-group">
+        <label for="clientSelect">Selecione o Cliente:</label>
+        <select id="clientSelect">
+          <option value="">-- Selecione --</option>
+        </select>
+        <button id="addNewCustomer">Novo Cliente</button>
+      </div>
+      <div class="form-group">
+        <label for="device">Dispositivo:</label>
+        <input type="text" id="device" required>
+      </div>
+      <div class="form-group">
+        <label for="issue">Problema:</label>
+        <textarea id="issue" required></textarea>
+      </div>
+      <div class="form-group">
+        <label for="budget">Orçamento:</label>
+        <input type="number" id="budget">
+      </div>
+      <div class="form-group">
+        <label for="price">Preço:</label>
+        <input type="number" id="price">
+      </div>
+      <div class="form-group">
+        <label for="deadline">Prazo:</label>
+        <input type="text" id="deadline">
+      </div>
+      <div class="form-group">
+        <label for="entryDateTime">Data e Hora de Entrada:</label>
+        <input type="datetime-local" id="entryDateTime">
+      </div>
+      <button type="submit">Enviar Ordem</button>
+    </form>
+    
+    <div id="ordersContainer">
+      <!-- As ordens de serviço serão adicionadas dinamicamente aqui -->
+    </div>
+  </main>
+  <script>
+    // Código JavaScript aqui
+    let orders = [];
+let closedOrders = [];
+let customers = [];
+
+// Carregar dados salvos ao iniciar
+loadSavedData();
+
+// Event listener para fechar/abrir o sistema
+document.getElementById('toggleSystem').addEventListener('click', toggleSystem);
+
+// Event listener para exibir o histórico
+document.getElementById('showHistory').addEventListener('click', displayHistory);
+
+// Event listener para exibir o formulário de cadastro de clientes
+document.getElementById('addNewCustomer').addEventListener('click', displayCustomerForm);
+
+// Event listener para cadastrar um novo cliente
+document.getElementById('customerForm').addEventListener('submit', handleCustomerFormSubmit);
+
+// Event listener para enviar uma nova ordem
+document.getElementById('orderForm').addEventListener('submit', handleOrderFormSubmit);
+
+// Função para alternar entre abrir/fechar o sistema
+function toggleSystem() {
+  const toggleButton = document.getElementById('toggleSystem');
+  if (toggleButton.textContent === 'Fechar Sistema') {
+    toggleButton.textContent = 'Abrir Sistema';
+    closeSystem();
+  } else {
+    toggleButton.textContent = 'Fechar Sistema';
+    openSystem();
+  }
+}
+
+// Função para fechar o sistema
+function closeSystem() {
+  closedOrders = orders.filter(order => order.status === 'Aberta');
+  orders = orders.filter(order => order.status !== 'Aberta');
+  saveData();
+  displayOrders();
+}
+
+// Função para abrir o sistema
+function openSystem() {
+  orders = orders.concat(closedOrders);
+  closedOrders = [];
+  saveData();
+  displayOrders();
+}
+
+// Função para exibir o formulário de cadastro de clientes
+function displayCustomerForm(event) {
+  event.preventDefault();
+  document.getElementById('customerFormContainer').style.display = 'block';
+}
+
+// Função para lidar com o envio do formulário de cadastro de clientes
+function handleCustomerFormSubmit(event) {
+  event.preventDefault();
+  const customerName = document.getElementById('customerName').value;
+  const customerPhone = document.getElementById('customerPhone').value;
+  const customerEmail = document.getElementById('customerEmail').value;
+  const customerId = generateId();
+  const customer = {
+    id: customerId,
+    name: customerName,
+    phone: customerPhone,
+    email: customerEmail
+  };
+  customers.push(customer);
+  saveData();
+  this.reset();
+  document.getElementById('customerFormContainer').style.display = 'none';
+  updateClientSelectOptions();
+}
+
+// Função para lidar com o envio do formulário de ordem de serviço
+function handleOrderFormSubmit(event) {
+  event.preventDefault();
+  const selectedCustomerId = document.getElementById('clientSelect').value;
+  const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId);
+  const clientName = selectedCustomer ? selectedCustomer.name : '';
+  const device = document.getElementById('device').value;
+  const issue = document.getElementById('issue').value;
+  const budget = document.getElementById('budget').value;
+  const price = document.getElementById('price').value;
+  const deadline = document.getElementById('deadline').value;
+  const entryDateTime = document.getElementById('entryDateTime').value;
+  
+  const order = {
+    clientName: clientName,
+    device: device,
+    issue: issue,
+    budget: budget,
+    price: price,
+    deadline: deadline,
+    entryDateTime: entryDateTime,
+    status: 'Aberta'
+  };
+  
+  orders.push(order);
+  saveData();
+  this.reset();
+  displayOrders();
+  alert('Ordem de serviço enviada com sucesso!');
+}
+
+// Função para exibir as ordens de serviço
+function displayOrders() {
+  const ordersContainer = document.getElementById('ordersContainer');
+  ordersContainer.innerHTML = '';
+  
+  orders.forEach((order, index) => {
+    const orderElement = createOrderElement(order, index);
+    ordersContainer.appendChild(orderElement);
+  });
+
+  closedOrders.forEach((order, index) => {
+    const orderElement = createOrderElement(order, index, true);
+    ordersContainer.appendChild(orderElement);
+  });
+
+  // Event listener para fechar uma ordem de serviço
+  document.querySelectorAll('.closeOrder').forEach(button => {
+    button.addEventListener('click', function() {
+      const index = parseInt(this.getAttribute('data-index'));
+      closeOrder(index);
+    });
+  });
+}
+
+// Função para criar o elemento HTML de uma ordem de serviço
+function createOrderElement(order, index, isClosed = false) {
+  const orderElement = document.createElement('div');
+  orderElement.classList.add('order');
+  orderElement.innerHTML = `
+    <h3>Ordem de Serviço #${index + 1} - ${order.status}</h3>
+    <p><strong>Cliente:</strong> ${order.clientName}</p>
+    <p><strong>Dispositivo:</strong> ${order.device}</p>
+    <p><strong>Problema:</strong> ${order.issue}</p>
+    <p><strong>Orçamento:</strong> ${order.budget}</p>
+    <p><strong>Preço:</strong> ${order.price}</p>
+    <p><strong>Prazo:</strong> ${order.deadline}</p>
+    <p><strong>Data e Hora de Entrada:</strong> ${order.entryDateTime}</p>
+    ${isClosed ? `
+      
+      <p><strong>Data e Hora de Fechamento:</strong> ${order.closeDateTime}</p>
+      <p><strong>Cliente:</strong> ${order.clientName}</p>
+    ` : `
+      <button class="closeOrder" data-index="${index}">Fechar Ordem</button>
+    `}
+  `;
+  return orderElement;
+}
+
+// Função para fechar uma ordem de serviço
+function closeOrder(index) {
+  const orderToClose = orders[index];
+  orderToClose.status = 'Fechada';
+  orderToClose.closeDateTime = new Date().toLocaleString();
+  closedOrders.push(orderToClose);
+  orders.splice(index, 1);
+  saveData();
+  displayOrders();
+}
+
+// Função para exibir o histórico de ordens abertas e fechadas
+function displayHistory() {
+  const ordersContainer = document.getElementById('ordersContainer');
+  ordersContainer.innerHTML = '';
+
+  const allOrders = orders.concat(closedOrders);
+  allOrders.forEach((order, index) => {
+    const orderElement = createOrderElement(order, index);
+    ordersContainer.appendChild(orderElement);
+  });
+}
+
+// Função para salvar os dados
+function saveData() {
+  const dataToSave = {
+    orders: orders,
+    closedOrders: closedOrders,
+    customers: customers
+  };
+  localStorage.setItem('sistema_ordem_servico', JSON.stringify(dataToSave));
+}
+
+// Função para carregar os dados salvos
+function loadSavedData() {
+  const savedData = JSON.parse(localStorage.getItem('sistema_ordem_servico')) || {};
+  orders = savedData.orders || [];
+  closedOrders = savedData.closedOrders || [];
+  customers = savedData.customers || [];
+  updateClientSelectOptions();
+  displayOrders();
+}
+
+// Função para atualizar as opções do seletor de clientes
+function updateClientSelectOptions() {
+  const clientSelect = document.getElementById('clientSelect');
+  clientSelect.innerHTML = '<option value="">-- Selecione --</option>';
+  customers.forEach(customer => {
+    clientSelect.innerHTML += `<option value="${customer.id}">${customer.name}</option>`;
+  });
+}
+
+// Função para gerar um ID único
+function generateId() {
+  return '_' + Math.random().toString(36).substr(2, 9);
+}
+</script>
+</body>
+</html>
+
+
+   
